@@ -38,17 +38,17 @@ an individual demo's `Agent(provider=..., model=...)` calls directly.
 
 **Rate limiting**: every demo builds its `Agent`/`AI` instances through
 `demos/_shared.py`'s `make_agent()`/`make_ai()`, which share *one*
-`RateLimiter(requests_per_minute=8)` per process -- constructing
-`Agent()`/`AI()` directly instead would each auto-build their own
-private limiter from `.env`'s `RATE_LIMIT_RPM`, and several uncoordinated
-limiters can combine to exceed the *real* free-tier quota even though
-each looks fine in isolation (confirmed live: this is exactly what
-caused the 429s during this project's own initial verification runs).
-`run_all.py` also pauses 15s between demos, since each runs as its own
-OS process and can't share the in-process limiter with the next one.
-Lower `PAUSE_BETWEEN_DEMOS_SECONDS` in `run_all.py` or raise
-`requests_per_minute` in `demos/_shared.py` if you're on a paid tier
-with a higher quota.
+`RateLimiter(requests_per_minute=8)` for the whole run. That single
+shared instance is the point: constructing `Agent()`/`AI()` directly
+instead would give each one its own private limiter (built from `.env`'s
+`RATE_LIMIT_RPM`), and several separately-paced limiters can each look
+fine on their own while their combined real call rate against one API
+key still exceeds the actual free-tier quota. `run_all.py` imports and
+runs every demo in one continuous process rather than as separate
+subprocesses, specifically so this one `RateLimiter` has complete,
+accurate visibility into every real call made during the whole run.
+Raise `requests_per_minute` in `demos/_shared.py` if you're on a paid
+tier with a higher quota.
 
 ## Running the demos
 
@@ -120,6 +120,9 @@ is behaving as documented:
 All 9 demos pass end to end against real Gemini output (`python
 run_all.py`, full run, 0.30.0). A couple of results worth calling out:
 
+- The AI facade and tool-calling agent in `demos/01_quickstart.py`
+  return real Gemini responses, including correct tool selection for a
+  prompt that needs two different tools in one turn.
 - The persistent-session MCP timing comparison
   (`demos/07_mcp_client.py`) measured a **~1000x speedup** for 10 calls
   (default per-call-reconnect mode vs. `async with client:`), consistent
@@ -127,7 +130,8 @@ run_all.py`, full run, 0.30.0). A couple of results worth calling out:
   [ADR-0030](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0030-mcp-persistent-session-mode.md).
 - `demos/10_recent_fixes.py`'s 6 structural checks all pass against the
   real installed package, independently of the framework's own test
-  suite.
+  suite. This one needs no API key, so it is the fastest way to sanity
+  check a fresh install.
 
 ## Troubleshooting
 
@@ -161,3 +165,7 @@ run_all.py`, full run, 0.30.0). A couple of results worth calling out:
 - Source + docs: <https://github.com/requisite-ai/requisite-ai>
 - Full ADR trail (design decisions behind every feature exercised
   above): <https://github.com/requisite-ai/requisite-ai/tree/main/docs/adr>
+- Requisite is open source and welcomes contributors: see
+  [CONTRIBUTING.md](https://github.com/requisite-ai/requisite-ai/blob/main/CONTRIBUTING.md)
+  in the main repo for setup, extension-point walkthroughs, and the PR
+  process.

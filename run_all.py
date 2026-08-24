@@ -3,16 +3,11 @@ Runs every demo in demos/ in one continuous process and reports a
 pass/fail summary.
 
 Deliberately in-process, not one subprocess per demo: demos/_shared.py's
-module-level `shared_rate_limit` is a single RateLimiter instance --
-importing every demo module into this same interpreter means that one
+module-level `shared_rate_limit` is a single RateLimiter instance.
+Importing every demo module into this same interpreter means that one
 instance genuinely accumulates the full call history across all of
 them, so its own wait/backoff logic has complete, correct visibility
-into the real API quota for the whole run. A subprocess-per-demo design
-can't give it that: each fresh subprocess starts a fresh RateLimiter
-with zero memory of what the previous (already-exited) process just
-did against the same real quota seconds earlier -- that gap was closed
-by switching to this in-process design rather than papering over it
-with a pause between demos.
+into the real API quota for the whole run.
 
 demos/06_mcp_server.py is skipped -- it's a server script meant to be
 spawned as a real subprocess by demos/07_mcp_client.py's own

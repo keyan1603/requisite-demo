@@ -1,31 +1,26 @@
 """
-Shared helper for the demo scripts: one conservative RateLimiter per
-process, so every Agent/AI a demo builds shares one real budget instead
-of each auto-building its own from Settings' RATE_LIMIT_RPM.
+Shared helper for the demo scripts: one RateLimiter for the whole run,
+so every Agent/AI a demo builds draws on one real, coherent budget
+instead of each auto-building its own from Settings' RATE_LIMIT_RPM.
 
-Why this matters: Agent()/AI() built *without* an explicit rate_limiter=
-each construct their own private RateLimiter from RATE_LIMIT_RPM (see
-AI._build_default_rate_limiter() in the framework). Several uncoordinated
-limiters, each individually honoring "12/min", can still combine to
-exceed the *real* Gemini free-tier quota (typically 15/min) when they're
-all drawing on the same API key -- confirmed live: running several demos
-back to back hit real 429s from Gemini even though each demo's own
-agents looked fine in isolation. Sharing one RateLimiter instance across
-every Agent/AI in a process closes that within-process gap.
-
-This can't fully close the gap *across* run_all.py's demos, though --
-each demo runs as its own OS subprocess (so a real quota conflict can
-still happen if one demo's calls are still in flight moments before the
-next starts) -- run_all.py adds a short pause between demos for that
-reason. See README.md's rate-limiting note for the full picture.
+Why a single shared instance: Agent()/AI() built *without* an explicit
+rate_limiter= each construct their own private RateLimiter from
+RATE_LIMIT_RPM (see AI._build_default_rate_limiter() in the framework).
+Several separately-paced limiters can each individually honor their own
+"N/min" while still combining to exceed the *real* Gemini free-tier
+quota, since they are all drawing on the same API key without
+coordinating with each other. Passing this one shared instance to every
+Agent/AI in the process gives it complete, accurate visibility into the
+real call rate, which is what run_all.py relies on by running every demo
+in one continuous process rather than as separate subprocesses.
 """
 
 from requisite import AI, Agent, RateLimiter
 from requisite.config.settings import Settings
 
 # Deliberately more conservative than Gemini's typical free-tier
-# 15/minute -- leaves real headroom for the imperfect cross-process
-# coordination described above, rather than aiming exactly at the limit.
+# 15/minute -- leaves real headroom rather than aiming exactly at the
+# limit, since several agents in the same run share this one budget.
 shared_rate_limit = RateLimiter(requests_per_minute=8, max_wait_seconds=180)
 
 _settings = Settings()
