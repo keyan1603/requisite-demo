@@ -64,60 +64,31 @@ Or run any single demo directly:
 .venv\Scripts\python demos\01_quickstart.py
 ```
 
-Demos that don't need a live model call at all (`demos/10_recent_fixes.py`,
-and the ADR-0031 checks inside `demos/05_rag.py`/`demos/09_prompts.py`)
-will pass even before you add a key. Everything else needs
-`GEMINI_API_KEY` set.
+Several demos (`demos/01_quickstart.py`, `demos/02_workflows_native.py`,
+`demos/05_rag.py`, `demos/09_prompts.py`) include a few checks near the
+end that use a scripted provider instead of a live model call and need no
+API key at all. Running one of those files end to end still needs a key
+though, since the real-call sections run first in the same file; import
+the individual function and call it directly if you want a no-key sanity
+check on its own. Everything else needs `GEMINI_API_KEY` set.
 
 ## What each demo covers
 
 | File | Covers |
 |---|---|
-| `demos/01_quickstart.py` | `AI` (one-shot chat), `Agent` + `@tool` (tool-calling loop) |
-| `demos/02_workflows_native.py` | Multi-agent orchestration on the default backend: `sequential`, `parallel`, `supervisor`, `hierarchical` (nested `Workflow` as a delegate), `reflection`, `graph` (developer-declared routing) |
+| `demos/01_quickstart.py` | `AI` (one-shot chat), `Agent` + `@tool` (tool-calling loop), and how the tool-calling loop handles a hallucinated tool call, a partial failure in a concurrent batch, and a tool with an unresolvable type hint |
+| `demos/02_workflows_native.py` | Multi-agent orchestration on the default backend: `sequential`, `parallel`, `supervisor`, `hierarchical` (nested `Workflow` as a delegate), `reflection`, `graph` (developer-declared routing), and how a self-referential hierarchical delegation is handled |
 | `demos/03_workflows_langgraph.py` | The same strategies, switched to the LangGraph execution backend via `.use_langgraph()` -- one-line config change, same `.add()`/`.run()` API |
 | `demos/04_memory.py` | `InProcessMemory`, `SQLiteMemory` (persists across restarts), `VectorMemory` (semantic recall via `load_relevant()`) |
 | `demos/05_rag.py` | `Retriever` (dense/embedding), `BM25Retriever` (keyword), `HybridRetriever` (fused via RRF), `LLMReranker`, `LLMContextCompressor`, exposing a retriever as an agent capability |
 | `demos/06_mcp_server.py` | A self-contained MCP server exposing Requisite tools + an agent (not run directly -- spawned by `07`) |
 | `demos/07_mcp_client.py` | `MCPClient` in both default (per-call-reconnect) and opt-in persistent-session mode, plus a timing comparison between the two |
 | `demos/08_capabilities.py` | `agent.requires(...)` -- built-in `weather`/`internet_search`/`github` capabilities, and overriding one with a higher-priority provider |
-| `demos/09_prompts.py` | `PromptTemplate`/`ChatPromptTemplate`, plus two ADR-0031 regression checks (dotted-field validation, `partial()` injection) |
-| `demos/10_recent_fixes.py` | Structural verification of the four most severe ADR-0031 fixes, using scripted (no live model call needed) providers -- see below |
-
-## About `demos/10_recent_fixes.py`
-
-This one is worth calling out specifically: it re-verifies the four
-most severe bugs found and fixed in the 0.30.0 code review pass,
-*against the real installed package* rather than the framework's own
-internal test suite. It uses scripted fake providers (no live model
-call, so it runs even before you add a Gemini key) to deterministically
-reproduce each original bug scenario:
-
-1. **A `Workflow` that delegates to itself** (directly, or through a
-   cycle of other `Workflow`s) under `hierarchical`/`graph` used to
-   crash with an uncatchable `RecursionError` -- now raises a clean,
-   immediate `ConfigurationException` instead.
-2. **A hallucinated/unknown tool call** used to abort the entire
-   `Agent.run()` on the very first bad call, regardless of
-   `max_iterations` -- now the model sees the failure and can retry.
-3. **One failing tool call in a concurrent batch** (`Agent.arun()`
-   executing several tool calls at once) used to leave the other,
-   still-succeeding calls silently abandoned -- now every call in the
-   batch completes and is reported.
-4. **`@tool` on a function with an unresolvable type hint** (e.g. a
-   `TYPE_CHECKING`-only import) used to crash with a raw `NameError` --
-   now degrades to a permissive schema, as documented.
-
-Run it on its own for a fast, no-API-key sanity check that the release
-is behaving as documented:
-
-```bash
-.venv\Scripts\python demos\10_recent_fixes.py
-```
+| `demos/09_prompts.py` | `PromptTemplate`/`ChatPromptTemplate`, plus two checks on dotted-field validation and `partial()` injection safety |
 
 ## Verified
 
-All 9 demos pass end to end against real Gemini output (`python
+All 8 demos pass end to end against real Gemini output (`python
 run_all.py`, full run, 0.30.0). A couple of results worth calling out:
 
 - The AI facade and tool-calling agent in `demos/01_quickstart.py`
@@ -128,10 +99,12 @@ run_all.py`, full run, 0.30.0). A couple of results worth calling out:
   (default per-call-reconnect mode vs. `async with client:`), consistent
   with the numbers in
   [ADR-0030](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0030-mcp-persistent-session-mode.md).
-- `demos/10_recent_fixes.py`'s 6 structural checks all pass against the
-  real installed package, independently of the framework's own test
-  suite. This one needs no API key, so it is the fastest way to sanity
-  check a fresh install.
+- The scripted, no-key checks in `demos/01_quickstart.py` and
+  `demos/02_workflows_native.py` (hallucinated tool recovery, a partial
+  failure in a concurrent tool-call batch, an unresolvable type hint on
+  `@tool`, and a self-referential hierarchical delegation) all pass
+  against the real installed package, independently of the framework's
+  own test suite.
 
 ## Troubleshooting
 

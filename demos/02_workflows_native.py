@@ -2,14 +2,21 @@
 02 - Multi-agent workflows on the native (default, dependency-free) backend.
 
 Covers the core execution strategies: sequential, parallel, supervisor,
-hierarchical, reflection, and graph (developer-declared routing).
+hierarchical, reflection, and graph (developer-declared routing), plus
+what happens when a hierarchical delegation graph references itself.
 
 Run with:
     python demos/02_workflows_native.py
 """
 
 from _shared import make_agent
-from requisite import END, Workflow
+from requisite import Agent, END, Workflow
+from requisite.config.settings import Settings
+from requisite.core.exceptions import ConfigurationException
+from requisite.core.interfaces import ChatResponse
+from requisite.orchestrators.native import _SupervisorDecision
+from requisite.providers.base import BaseProvider
+from requisite.providers.factory import ProviderRegistry
 
 
 def sequential_and_parallel() -> None:
@@ -72,6 +79,59 @@ def hierarchical() -> None:
     )
 
 
+class _AlwaysDelegateProvider(BaseProvider):
+    """A scripted provider that always asks to delegate to the same
+    named worker, no matter what it's asked -- used below to show what
+    happens when a hierarchical delegation graph references itself. No
+    live model call, so this runs instantly and needs no API key."""
+
+    def __init__(self, *, worker: str, **kwargs) -> None:
+        super().__init__(api_key="fake-key", model="fake-model")
+        self._worker = worker
+
+    @property
+    def name(self) -> str:
+        return "always-delegate"
+
+    def chat(self, messages, **kwargs) -> ChatResponse:
+        decision = _SupervisorDecision(action="delegate", worker=self._worker, task="keep going")
+        return ChatResponse(content="", model=self._model, provider=self.name, parsed=decision)
+
+    async def achat(self, messages, **kwargs) -> ChatResponse:
+        return self.chat(messages, **kwargs)
+
+    def stream(self, messages, **kwargs):
+        raise NotImplementedError
+
+    async def astream(self, messages, **kwargs):
+        raise NotImplementedError
+        yield  # pragma: no cover
+
+
+def self_referential_delegation_is_caught() -> None:
+    print(
+        "\n=== hierarchical: a team that delegates to itself raises a clean error, "
+        "not an infinite loop ==="
+    )
+    registry = ProviderRegistry()
+    provider = _AlwaysDelegateProvider(worker="Team")
+    registry.register("scripted", lambda **kwargs: provider)
+    settings = Settings(default_provider="scripted", model="fake-model", rate_limit_rpm=None)
+    coordinator = Agent(
+        name="Coordinator", provider="scripted", settings=settings, registry=registry
+    )
+
+    team = Workflow(name="Team").hierarchical()
+    team.add(coordinator).add(team)  # Team delegates to itself
+
+    try:
+        team.run("go", max_rounds=1_000_000)
+        raise AssertionError("expected ConfigurationException")
+    except ConfigurationException as exc:
+        assert "delegation cycle detected" in str(exc)
+        print(f"  raised cleanly: {exc}")
+
+
 def reflection() -> None:
     print("\n=== reflection (an agent critiques and revises its own output) ===")
     writer = make_agent("Writer", "You write short, punchy taglines.")
@@ -119,6 +179,7 @@ def main() -> None:
     sequential_and_parallel()
     supervisor()
     hierarchical()
+    self_referential_delegation_is_caught()
     reflection()
     graph_with_conditional_routing()
 
