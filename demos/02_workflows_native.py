@@ -1,8 +1,9 @@
 """
 02 - Multi-agent workflows on the native (default, dependency-free) backend.
 
-Covers the core execution strategies: sequential, parallel, supervisor,
-hierarchical, reflection, and graph (developer-declared routing), plus
+Covers all twelve execution strategies: sequential, parallel, consensus,
+map_reduce, supervisor, planner, hierarchical, reflection, critic,
+debate, tree_of_thoughts, and graph (developer-declared routing), plus
 what happens when a hierarchical delegation graph references itself.
 
 Run with:
@@ -33,6 +34,120 @@ def sequential_and_parallel() -> None:
     workflow.parallel()
     result = workflow.run("What is retrieval-augmented generation?")
     print(result.content)
+
+
+def consensus() -> None:
+    print("\n=== consensus (several agents answer independently, then one synthesizes) ===")
+    writer = make_agent("Writer", "You turn research notes into one polished paragraph.")
+    writer_a = make_agent("WriterA")
+    writer_b = make_agent("WriterB")
+
+    workflow = Workflow().consensus()
+    workflow.add(writer).add(writer_a).add(writer_b)
+    result = workflow.run(
+        "In one sentence, what is the single biggest benefit of retrieval-augmented generation?"
+    )
+    print(result.content)
+    print(f"(synthesized from: {[s.agent_name for s in result.steps[:-1]]})")
+
+
+def map_reduce() -> None:
+    print("\n=== map_reduce (each mapper handles one item, then a reducer combines them) ===")
+    mapper_a = make_agent("MapperA")
+    mapper_b = make_agent("MapperB")
+    reducer = make_agent("Reducer", "You combine several short summaries into one coherent overview.")
+
+    workflow = Workflow().map_reduce()
+    workflow.add(reducer).add(mapper_a).add(mapper_b)
+    result = workflow.run(
+        "Summarize the key idea of each note in one sentence each.",
+        map_items=[
+            "RAG grounds LLM answers in retrieved documents to reduce hallucination.",
+            "MCP standardizes how AI applications connect to external tools and data.",
+            "LangGraph models agent workflows as graphs instead of linear chains.",
+        ],
+    )
+    print(result.content)
+    print(f"(mapped by: {[s.agent_name for s in result.steps[:-1]]})")
+
+
+def planner() -> None:
+    print("\n=== planner (the first agent decomposes the task into a plan for named workers) ===")
+    planner_agent = make_agent(
+        "Planner", "You break tasks into an ordered plan of subtasks for your team."
+    )
+    researcher = make_agent("Researcher", "You research topics and produce concise bullet points.")
+    writer = make_agent("Writer", "You turn research notes into one polished paragraph.")
+
+    workflow = Workflow().planner()
+    workflow.add(planner_agent).add(researcher).add(writer)
+    result = workflow.run("Research what MCP (Model Context Protocol) is and write a short explainer.")
+    print(result.content)
+    print(f"(plan had {len(result.steps)} step(s): {[s.agent_name for s in result.steps]})")
+
+
+def critic() -> None:
+    print("\n=== critic (a separate agent reviews the writer's draft, unlike reflection's self-review) ===")
+    writer = make_agent("Writer", "You write short, punchy taglines.")
+    critic_agent = make_agent(
+        "Critic",
+        "You critique short taglines for clarity and punch. If a tagline is "
+        "already excellent, respond with exactly NO_CHANGES_NEEDED.",
+    )
+
+    workflow = Workflow().critic()
+    workflow.add(writer).add(critic_agent)
+    result = workflow.run(
+        "Write a one-sentence tagline for an open-source AI framework.", max_rounds=3
+    )
+    print(result.content)
+    print(f"(rounds of generator/critic exchange: {len(result.steps)})")
+
+
+def debate() -> None:
+    print("\n=== debate (a moderator judges two agents arguing opposite sides of a trade-off) ===")
+    debater_for = make_agent(
+        "ForMonolith", "You argue FOR building a new backend as a monolith. Be concise."
+    )
+    debater_against = make_agent(
+        "ForMicroservices", "You argue FOR building a new backend as microservices. Be concise."
+    )
+    moderator = make_agent(
+        "Moderator", "You judge technical debates and deliver a balanced final verdict."
+    )
+
+    workflow = Workflow().debate()
+    workflow.add(moderator).add(debater_for).add(debater_against)
+    result = workflow.run(
+        "Should a small team building a new product start with a monolith or microservices?",
+        max_rounds=2,
+    )
+    print(result.content)
+    print(f"(debate steps + verdict: {len(result.steps)})")
+
+
+def tree_of_thoughts() -> None:
+    print("\n=== tree_of_thoughts (candidate reasoning steps scored and pruned each level) ===")
+    evaluator = make_agent(
+        "Evaluator",
+        "You evaluate candidate reasoning steps for a math word problem, scoring "
+        "how promising and correct each one is.",
+    )
+    thinker = make_agent(
+        "Thinker", "You propose the next reasoning step to solve a math word problem."
+    )
+
+    workflow = Workflow().tree_of_thoughts()
+    workflow.add(evaluator).add(thinker)
+    result = workflow.run(
+        "A train travels 60 miles in the first hour and 90 miles in the "
+        "second hour. What is its average speed over the two hours?",
+        breadth=3,
+        beam_width=2,
+        max_depth=3,
+    )
+    print(result.content)
+    print(f"(generated {len(result.steps)} candidate thoughts across up to 3 levels)")
 
 
 def supervisor() -> None:
@@ -177,10 +292,16 @@ def graph_with_conditional_routing() -> None:
 
 def main() -> None:
     sequential_and_parallel()
+    consensus()
+    map_reduce()
     supervisor()
+    planner()
     hierarchical()
     self_referential_delegation_is_caught()
     reflection()
+    critic()
+    debate()
+    tree_of_thoughts()
     graph_with_conditional_routing()
 
 

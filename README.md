@@ -1,12 +1,16 @@
 # requisite-demo
 
 A standalone project that installs [`requisite-ai`](https://pypi.org/project/requisite-ai/)
-0.30.0 fresh from PyPI (not from the framework's own source checkout)
-and exercises its features end-to-end, the way an external consumer
-actually would. Built to verify the 0.30.0 release -- including the
+fresh from PyPI (not from the framework's own source checkout) and
+exercises its features end-to-end, the way an external consumer actually
+would. Originally built to verify the 0.30.0 release -- including the
 [18 fixes from the ADR-0031 code review pass](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0031-code-review-fixes.md) --
-against the real published package, and to double as a working
-"how do I actually use this" reference.
+against the real published package, and kept up to date since as a
+working "how do I actually use this" reference. Currently verifies
+**0.34.0**, including all twelve multi-agent strategies (`consensus`,
+`map_reduce`, `critic`, `debate`, `tree_of_thoughts`, and `planner` were
+added to this repo alongside 0.34.0, matching the strategies that
+shipped in 0.31.0-0.34.0) on both the `native` and `langgraph` backends.
 
 ## Setup
 
@@ -77,8 +81,8 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 | File | Covers |
 |---|---|
 | `demos/01_quickstart.py` | `AI` (one-shot chat), `Agent` + `@tool` (tool-calling loop), and how the tool-calling loop handles a hallucinated tool call, a partial failure in a concurrent batch, and a tool with an unresolvable type hint |
-| `demos/02_workflows_native.py` | Multi-agent orchestration on the default backend: `sequential`, `parallel`, `supervisor`, `hierarchical` (nested `Workflow` as a delegate), `reflection`, `graph` (developer-declared routing), and how a self-referential hierarchical delegation is handled |
-| `demos/03_workflows_langgraph.py` | The same strategies, switched to the LangGraph execution backend via `.use_langgraph()` -- one-line config change, same `.add()`/`.run()` API |
+| `demos/02_workflows_native.py` | All twelve multi-agent strategies on the default backend: `sequential`, `parallel`, `consensus`, `map_reduce`, `supervisor`, `planner`, `hierarchical` (nested `Workflow` as a delegate), `reflection`, `critic`, `debate`, `tree_of_thoughts`, `graph` (developer-declared routing), and how a self-referential hierarchical delegation is handled |
+| `demos/03_workflows_langgraph.py` | The same twelve strategies, switched to the LangGraph execution backend via `.use_langgraph()` -- one-line config change, same `.add()`/`.run()` API |
 | `demos/04_memory.py` | `InProcessMemory`, `SQLiteMemory` (persists across restarts), `VectorMemory` (semantic recall via `load_relevant()`) |
 | `demos/05_rag.py` | `Retriever` (dense/embedding), `BM25Retriever` (keyword), `HybridRetriever` (fused via RRF), `LLMReranker`, `LLMContextCompressor`, exposing a retriever as an agent capability |
 | `demos/06_mcp_server.py` | A self-contained MCP server exposing Requisite tools + an agent (not run directly -- spawned by `07`) |
@@ -89,16 +93,21 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 ## Verified
 
 All 8 demos pass end to end against real Gemini output (`python
-run_all.py`, full run, 0.30.0). A couple of results worth calling out:
+run_all.py`, full run, 0.34.0), including all twelve multi-agent
+strategies (`sequential`, `parallel`, `consensus`, `map_reduce`,
+`supervisor`, `planner`, `hierarchical`, `reflection`, `critic`,
+`debate`, `tree_of_thoughts`, `graph`) on both the `native` and
+`langgraph` backends. A couple of results worth calling out:
 
 - The AI facade and tool-calling agent in `demos/01_quickstart.py`
   return real Gemini responses, including correct tool selection for a
   prompt that needs two different tools in one turn.
 - The persistent-session MCP timing comparison
-  (`demos/07_mcp_client.py`) measured a **~1000x speedup** for 10 calls
+  (`demos/07_mcp_client.py`) measured a **~587x speedup** for 10 calls
   (default per-call-reconnect mode vs. `async with client:`), consistent
   with the numbers in
-  [ADR-0030](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0030-mcp-persistent-session-mode.md).
+  [ADR-0030](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0030-mcp-persistent-session-mode.md)
+  (the exact multiplier varies run to run with local network conditions).
 - The scripted, no-key checks in `demos/01_quickstart.py` and
   `demos/02_workflows_native.py` (hallucinated tool recovery, a partial
   failure in a concurrent tool-call batch, an unresolvable type hint on
