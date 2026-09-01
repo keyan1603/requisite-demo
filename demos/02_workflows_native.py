@@ -1,17 +1,18 @@
 """
 02 - Multi-agent workflows on the native (default, dependency-free) backend.
 
-Covers all twelve execution strategies: sequential, parallel, consensus,
+Covers all thirteen execution strategies: sequential, parallel, consensus,
 map_reduce, supervisor, planner, hierarchical, reflection, critic,
-debate, tree_of_thoughts, and graph (developer-declared routing), plus
-what happens when a hierarchical delegation graph references itself.
+debate, tree_of_thoughts, reflexion, and graph (developer-declared
+routing), plus what happens when a hierarchical delegation graph
+references itself.
 
 Run with:
     python demos/02_workflows_native.py
 """
 
 from _shared import make_agent
-from requisite import Agent, END, Workflow
+from requisite import Agent, END, EvaluationResult, Workflow
 from requisite.config.settings import Settings
 from requisite.core.exceptions import ConfigurationException
 from requisite.core.interfaces import ChatResponse
@@ -148,6 +149,25 @@ def tree_of_thoughts() -> None:
     )
     print(result.content)
     print(f"(generated {len(result.steps)} candidate thoughts across up to 3 levels)")
+
+
+def reflexion() -> None:
+    print("\n=== reflexion (attempt, evaluate, and reflect before retrying from scratch) ===")
+    solver = make_agent("Solver", "You solve arithmetic word problems, showing your work briefly.")
+
+    def check_contains_391(task: str, attempt: str) -> EvaluationResult:
+        if "391" in attempt:
+            return EvaluationResult(success=True, feedback="Correct.")
+        return EvaluationResult(
+            success=False,
+            feedback="The final numeric answer is wrong -- recompute 17 * 23 carefully.",
+        )
+
+    workflow = Workflow().reflexion()
+    workflow.add(solver)
+    result = workflow.run("What is 17 * 23?", evaluator=check_contains_391, max_trials=3)
+    print(result.content)
+    print(f"(succeeded: {result.succeeded}, {len(result.steps)} step(s) across up to 3 trials)")
 
 
 def supervisor() -> None:
@@ -302,6 +322,7 @@ def main() -> None:
     critic()
     debate()
     tree_of_thoughts()
+    reflexion()
     graph_with_conditional_routing()
 
 

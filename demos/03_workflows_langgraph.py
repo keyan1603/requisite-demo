@@ -8,16 +8,18 @@ langgraph instead of a Python loop; parallel/consensus/map_reduce fan out
 to concurrent nodes in one superstep joined by an aggregator; debate/
 tree_of_thoughts unroll their fixed-shape rounds/levels into a static
 sequence at graph-build time; planner runs one upfront structured-output
-call, then a bounded loop-back cycle over the plan's own length. See
-docs/adr/0016, 0028, 0029, 0032, 0033, 0034, 0035 in the requisite-ai
-repo for the design behind each.
+call, then a bounded loop-back cycle over the plan's own length;
+reflexion is a 3-node attempt/evaluate/reflect cycle, structurally close
+to reflection/critic except the loop-back condition is a pluggable
+evaluator's success signal. See docs/adr/0016, 0028, 0029, 0032, 0033,
+0034, 0035, 0037 in the requisite-ai repo for the design behind each.
 
 Run with:
     python demos/03_workflows_langgraph.py
 """
 
 from _shared import make_agent
-from requisite import Workflow
+from requisite import EvaluationResult, Workflow
 
 
 def sequential_on_langgraph() -> None:
@@ -163,6 +165,28 @@ def tree_of_thoughts_on_langgraph() -> None:
     print(f"(generated {len(result.steps)} candidate thoughts)")
 
 
+def reflexion_on_langgraph() -> None:
+    print(
+        "\n=== reflexion (langgraph -- attempt/evaluate/reflect cycle, loop-back condition "
+        "is the evaluator's success signal) ==="
+    )
+    solver = make_agent("Solver", "You solve arithmetic word problems, showing your work briefly.")
+
+    def check_contains_391(task: str, attempt: str) -> EvaluationResult:
+        if "391" in attempt:
+            return EvaluationResult(success=True, feedback="Correct.")
+        return EvaluationResult(
+            success=False,
+            feedback="The final numeric answer is wrong -- recompute 17 * 23 carefully.",
+        )
+
+    workflow = Workflow().reflexion().use_langgraph()
+    workflow.add(solver)
+    result = workflow.run("What is 17 * 23?", evaluator=check_contains_391, max_trials=3)
+    print(result.content)
+    print(f"(succeeded: {result.succeeded}, {len(result.steps)} step(s) across up to 3 trials)")
+
+
 def supervisor_on_langgraph() -> None:
     print("\n=== supervisor (langgraph -- a real conditional graph, not a Python loop) ===")
     coordinator = make_agent(
@@ -251,6 +275,7 @@ def main() -> None:
     critic_on_langgraph()
     debate_on_langgraph()
     tree_of_thoughts_on_langgraph()
+    reflexion_on_langgraph()
     hierarchical_on_langgraph()
     graph_on_langgraph()
 

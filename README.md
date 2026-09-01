@@ -7,10 +7,11 @@ would. Originally built to verify the 0.30.0 release -- including the
 [18 fixes from the ADR-0031 code review pass](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0031-code-review-fixes.md) --
 against the real published package, and kept up to date since as a
 working "how do I actually use this" reference. Currently verifies
-**0.34.0**, including all twelve multi-agent strategies (`consensus`,
+**0.36.0**, including all thirteen multi-agent strategies (`consensus`,
 `map_reduce`, `critic`, `debate`, `tree_of_thoughts`, and `planner` were
-added to this repo alongside 0.34.0, matching the strategies that
-shipped in 0.31.0-0.34.0) on both the `native` and `langgraph` backends.
+added to this repo alongside 0.34.0, `reflexion` alongside 0.36.0,
+matching the strategies that shipped in 0.31.0-0.36.0) on both the
+`native` and `langgraph` backends.
 
 ## Setup
 
@@ -81,8 +82,8 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 | File | Covers |
 |---|---|
 | `demos/01_quickstart.py` | `AI` (one-shot chat), `Agent` + `@tool` (tool-calling loop), and how the tool-calling loop handles a hallucinated tool call, a partial failure in a concurrent batch, and a tool with an unresolvable type hint |
-| `demos/02_workflows_native.py` | All twelve multi-agent strategies on the default backend: `sequential`, `parallel`, `consensus`, `map_reduce`, `supervisor`, `planner`, `hierarchical` (nested `Workflow` as a delegate), `reflection`, `critic`, `debate`, `tree_of_thoughts`, `graph` (developer-declared routing), and how a self-referential hierarchical delegation is handled |
-| `demos/03_workflows_langgraph.py` | The same twelve strategies, switched to the LangGraph execution backend via `.use_langgraph()` -- one-line config change, same `.add()`/`.run()` API |
+| `demos/02_workflows_native.py` | All thirteen multi-agent strategies on the default backend: `sequential`, `parallel`, `consensus`, `map_reduce`, `supervisor`, `planner`, `hierarchical` (nested `Workflow` as a delegate), `reflection`, `critic`, `debate`, `tree_of_thoughts`, `reflexion`, `graph` (developer-declared routing), and how a self-referential hierarchical delegation is handled |
+| `demos/03_workflows_langgraph.py` | The same thirteen strategies, switched to the LangGraph execution backend via `.use_langgraph()` -- one-line config change, same `.add()`/`.run()` API |
 | `demos/04_memory.py` | `InProcessMemory`, `SQLiteMemory` (persists across restarts), `VectorMemory` (semantic recall via `load_relevant()`) |
 | `demos/05_rag.py` | `Retriever` (dense/embedding), `BM25Retriever` (keyword), `HybridRetriever` (fused via RRF), `LLMReranker`, `LLMContextCompressor`, exposing a retriever as an agent capability |
 | `demos/06_mcp_server.py` | A self-contained MCP server exposing Requisite tools + an agent (not run directly -- spawned by `07`) |
@@ -92,18 +93,27 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 
 ## Verified
 
-All 8 demos pass end to end against real Gemini output (`python
-run_all.py`, full run, 0.34.0), including all twelve multi-agent
+6 of 8 demos pass end to end against real Gemini output (`python
+run_all.py`, full run, 0.36.0), including all thirteen multi-agent
 strategies (`sequential`, `parallel`, `consensus`, `map_reduce`,
 `supervisor`, `planner`, `hierarchical`, `reflection`, `critic`,
-`debate`, `tree_of_thoughts`, `graph`) on both the `native` and
-`langgraph` backends. A couple of results worth calling out:
+`debate`, `tree_of_thoughts`, `reflexion`, `graph`) on both the
+`native` and `langgraph` backends. `demos/04_memory.py` and
+`demos/05_rag.py` currently fail on this key's `VectorMemory`/`Retriever`
+calls specifically -- a distinct Vertex AI embedding quota
+(`aiplatform.googleapis.com/global_embed_content_requests_per_minute_per_base_model`)
+from the chat-generation quota `RateLimiter` paces around, and its error
+body asks for a quota increase request rather than a wait/retry, so this
+looks like an account-level limit rather than transient rate-limiting;
+confirmed by retrying `demos/04_memory.py` alone, twice, with real time
+between attempts. `InProcessMemory`/`SQLiteMemory` (no embeddings
+involved) both still pass. A couple of results worth calling out:
 
 - The AI facade and tool-calling agent in `demos/01_quickstart.py`
   return real Gemini responses, including correct tool selection for a
   prompt that needs two different tools in one turn.
 - The persistent-session MCP timing comparison
-  (`demos/07_mcp_client.py`) measured a **~587x speedup** for 10 calls
+  (`demos/07_mcp_client.py`) measured a **~956x speedup** for 10 calls
   (default per-call-reconnect mode vs. `async with client:`), consistent
   with the numbers in
   [ADR-0030](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0030-mcp-persistent-session-mode.md)
