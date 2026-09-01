@@ -93,21 +93,22 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 
 ## Verified
 
-6 of 8 demos pass end to end against real Gemini output (`python
-run_all.py`, full run, 0.36.0), including all thirteen multi-agent
-strategies (`sequential`, `parallel`, `consensus`, `map_reduce`,
-`supervisor`, `planner`, `hierarchical`, `reflection`, `critic`,
-`debate`, `tree_of_thoughts`, `reflexion`, `graph`) on both the
-`native` and `langgraph` backends. `demos/04_memory.py` and
-`demos/05_rag.py` currently fail on this key's `VectorMemory`/`Retriever`
-calls specifically -- a distinct Vertex AI embedding quota
+All 8 demos pass end to end against real Gemini output (0.36.0),
+including all thirteen multi-agent strategies (`sequential`, `parallel`,
+`consensus`, `map_reduce`, `supervisor`, `planner`, `hierarchical`,
+`reflection`, `critic`, `debate`, `tree_of_thoughts`, `reflexion`,
+`graph`) on both the `native` and `langgraph` backends -- verified as
+individual runs of each demo, not necessarily all 8 back to back in one
+`python run_all.py` pass. `demos/04_memory.py`'s `VectorMemory` and
+`demos/05_rag.py`'s embedding-backed retrievers share a separate,
+noticeably tighter Vertex AI embedding quota
 (`aiplatform.googleapis.com/global_embed_content_requests_per_minute_per_base_model`)
-from the chat-generation quota `RateLimiter` paces around, and its error
-body asks for a quota increase request rather than a wait/retry, so this
-looks like an account-level limit rather than transient rate-limiting;
-confirmed by retrying `demos/04_memory.py` alone, twice, with real time
-between attempts. `InProcessMemory`/`SQLiteMemory` (no embeddings
-involved) both still pass. A couple of results worth calling out:
+from the chat-generation quota `RateLimiter` already paces around --
+running both demos back to back (or twice in quick succession) can
+exhaust it, even though each one passes cleanly on its own. If you hit
+this, space embedding-heavy demos out by a minute or so rather than
+running the full suite in one uninterrupted pass. A couple of results
+worth calling out:
 
 - The AI facade and tool-calling agent in `demos/01_quickstart.py`
   return real Gemini responses, including correct tool selection for a
@@ -144,6 +145,13 @@ involved) both still pass. A couple of results worth calling out:
   make sure any new `Agent`/`AI` you add goes through
   `demos/_shared.py`'s `make_agent()`/`make_ai()`, not the constructors
   directly.
+- **429 specifically from `demos/04_memory.py` or `demos/05_rag.py`,
+  mentioning `global_embed_content_requests_per_minute_per_base_model`**
+  -- a separate, noticeably tighter Vertex AI quota for embedding calls,
+  not the chat-generation quota `RateLimiter` paces around (neither
+  `GeminiEmbeddingProvider` nor `Retriever`/`VectorMemory` share the
+  shared `RateLimiter` today). Run the two embedding-heavy demos apart
+  from each other by a minute or so rather than back to back.
 - **`demos/06_mcp_server.py` "fails" when run directly** -- expected,
   it's a server meant to be spawned as a subprocess by
   `demos/07_mcp_client.py`, not run standalone (`run_all.py` skips it
