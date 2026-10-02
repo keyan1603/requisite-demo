@@ -7,11 +7,14 @@ would. Originally built to verify the 0.30.0 release -- including the
 [18 fixes from the ADR-0031 code review pass](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0031-code-review-fixes.md) --
 against the real published package, and kept up to date since as a
 working "how do I actually use this" reference. Currently verifies
-**0.36.0**, including all thirteen multi-agent strategies (`consensus`,
+**0.37.0**, including all thirteen multi-agent strategies (`consensus`,
 `map_reduce`, `critic`, `debate`, `tree_of_thoughts`, and `planner` were
 added to this repo alongside 0.34.0, `reflexion` alongside 0.36.0,
-matching the strategies that shipped in 0.31.0-0.36.0) on both the
-`native` and `langgraph` backends.
+`CostLimiter` alongside 0.37.0, matching what shipped in 0.31.0-0.37.0)
+on both the `native` and `langgraph` backends. A `demos/11_adk_orchestrator.py`
+demo is also included for the `adk` orchestrator backend shipping in
+0.38.0, but is **not yet verified here** -- 0.38.0 isn't published to
+PyPI yet, and this repo only installs fresh from PyPI, not from source.
 
 ## Setup
 
@@ -90,15 +93,20 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 | `demos/07_mcp_client.py` | `MCPClient` in both default (per-call-reconnect) and opt-in persistent-session mode, plus a timing comparison between the two |
 | `demos/08_capabilities.py` | `agent.requires(...)` -- built-in `weather`/`internet_search`/`github` capabilities, and overriding one with a higher-priority provider |
 | `demos/09_prompts.py` | `PromptTemplate`/`ChatPromptTemplate`, plus two checks on dotted-field validation and `partial()` injection safety |
+| `demos/10_cost_limiter.py` | `CostLimiter`/`cost_per_token()` -- capping real dollar spend on a tiny budget until it genuinely exhausts mid-run, then `reset()` |
+| `demos/11_adk_orchestrator.py` | The `adk` orchestrator backend (`workflow.use_adk()`) -- `sequential` and `supervisor` strategies, delegating coordination to Google's Agent Development Kit. Requires `pip install google-adk` and `requisite-ai>=0.38.0`; **not yet verified here** (0.38.0 not yet on PyPI) |
 
 ## Verified
 
-All 8 demos pass end to end against real Gemini output (0.36.0),
-including all thirteen multi-agent strategies (`sequential`, `parallel`,
+All 9 runnable demos except `demos/11_adk_orchestrator.py` pass end to
+end against real Gemini output (0.37.0) -- `demos/11_adk_orchestrator.py`
+needs `requisite-ai>=0.38.0`, not yet published to PyPI, so it isn't
+verified here yet (see the note above). This includes all thirteen
+multi-agent strategies (`sequential`, `parallel`,
 `consensus`, `map_reduce`, `supervisor`, `planner`, `hierarchical`,
 `reflection`, `critic`, `debate`, `tree_of_thoughts`, `reflexion`,
 `graph`) on both the `native` and `langgraph` backends -- verified as
-individual runs of each demo, not necessarily all 8 back to back in one
+individual runs of each demo, not necessarily all 9 back to back in one
 `python run_all.py` pass. `demos/04_memory.py`'s `VectorMemory` and
 `demos/05_rag.py`'s embedding-backed retrievers share a separate,
 noticeably tighter Vertex AI embedding quota
@@ -113,6 +121,9 @@ worth calling out:
 - The AI facade and tool-calling agent in `demos/01_quickstart.py`
   return real Gemini responses, including correct tool selection for a
   prompt that needs two different tools in one turn.
+- `demos/10_cost_limiter.py`'s deliberately tiny `budget_usd` genuinely
+  exhausts on the 3rd call (not just asserted) -- the call is blocked
+  with a real `CostLimitException` before it ever reaches Gemini.
 - The persistent-session MCP timing comparison
   (`demos/07_mcp_client.py`) measured a **~956x speedup** for 10 calls
   (default per-call-reconnect mode vs. `async with client:`), consistent
