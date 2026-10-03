@@ -102,16 +102,15 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 | `demos/09_prompts.py` | `PromptTemplate`/`ChatPromptTemplate`, plus two checks on dotted-field validation and `partial()` injection safety |
 | `demos/10_cost_limiter.py` | `CostLimiter`/`cost_per_token()` -- capping real dollar spend on a tiny budget until it genuinely exhausts mid-run, then `reset()` |
 | `demos/11_adk_orchestrator.py` | The `adk` orchestrator backend (`workflow.use_adk()`) -- `sequential` and `supervisor` strategies, delegating coordination to Google's Agent Development Kit. Needs the `adk` extra |
-| `demos/12_agent_sdk_backends.py` | The `openai_agents`, `strands` and `agent_framework` orchestrator backends (`use_openai_agents()` / `use_strands()` / `use_agent_framework()`) -- `sequential` and `supervisor` on each, coordinated by that vendor's own SDK while every model call still goes through the agent's own Gemini provider. Each workflow is run twice on the same agents to cover the repeated-sync-run fix in 0.38.0. Needs the `openai_agents`, `strands` and `agent_framework` extras |
+| `demos/12_agent_sdk_backends.py` | The `openai_agents`, `strands` and `agent_framework` orchestrator backends (`use_openai_agents()` / `use_strands()` / `use_agent_framework()`) -- `sequential` and `supervisor` on each, coordinated by that vendor's own SDK while every model call still goes through the agent's own Gemini provider. The sequential workflow is run twice on the same agents. Needs the `openai_agents`, `strands` and `agent_framework` extras |
 
 ## Verified
 
 `demos/10_cost_limiter.py`, `demos/11_adk_orchestrator.py` and
 `demos/12_agent_sdk_backends.py` were run against the published **0.38.0**
-and pass against real Gemini output, as did `demos/01_quickstart.py`
-(re-run because 0.38.0 added connection-error retries to every Gemini
-call). The other demos last passed individually on 0.37.0 and have not
-been re-run on 0.38.0 -- nothing in 0.38.0 changes the code paths they
+and pass against real Gemini output, as did `demos/01_quickstart.py`.
+The other demos last passed individually on 0.37.0 and have not been
+re-run on 0.38.0 -- nothing in 0.38.0 changes the code paths they
 exercise, but that is an inference, not a re-verification. On 0.37.0
 that covered all thirteen multi-agent strategies (`sequential`,
 `parallel`, `consensus`, `map_reduce`, `supervisor`, `planner`,

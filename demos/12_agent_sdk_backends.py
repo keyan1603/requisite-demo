@@ -13,10 +13,8 @@ agent's own provider (Gemini here, via the shared rate limiter), so
 `use_openai_agents()` never calls OpenAI and `use_strands()` never calls
 Bedrock.
 
-Each workflow is run twice on the same agents on purpose: before 0.38.0
-the second synchronous `run()` on reused agents could fail with
-"Event loop is closed" (see ADR-0040), so a clean second run is part of
-what this demo verifies.
+Each sequential workflow is run twice on the same agents, since a
+workflow and its agents are meant to be reused across calls.
 
 Requires: pip install "requisite-ai[openai_agents,strands,agent_framework]"
 
