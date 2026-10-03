@@ -7,14 +7,13 @@ would. Originally built to verify the 0.30.0 release -- including the
 [18 fixes from the ADR-0031 code review pass](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0031-code-review-fixes.md) --
 against the real published package, and kept up to date since as a
 working "how do I actually use this" reference. Currently verifies
-**0.37.0**, including all thirteen multi-agent strategies (`consensus`,
+**0.38.0**, including all thirteen multi-agent strategies (`consensus`,
 `map_reduce`, `critic`, `debate`, `tree_of_thoughts`, and `planner` were
 added to this repo alongside 0.34.0, `reflexion` alongside 0.36.0,
 `CostLimiter` alongside 0.37.0, matching what shipped in 0.31.0-0.37.0)
-on both the `native` and `langgraph` backends. A `demos/11_adk_orchestrator.py`
-demo is also included for the `adk` orchestrator backend shipping in
-0.38.0, but is **not yet verified here** -- 0.38.0 isn't published to
-PyPI yet, and this repo only installs fresh from PyPI, not from source.
+on both the `native` and `langgraph` backends, plus the four agent-SDK
+orchestrator backends that shipped in 0.38.0 (`adk`, `openai_agents`,
+`strands`, `agent_framework`).
 
 ## Setup
 
@@ -31,6 +30,14 @@ own dependencies hard-pin an older `mcp` version that conflicts with
 this package's `mcp>=2.0` requirement -- see the main repo's README for
 details). That's OpenAI, Gemini, Anthropic, Ollama, LangGraph, MCP,
 Pinecone, Weaviate, Redis, OpenTelemetry, and AutoGen.
+
+The agent-SDK orchestrator backends (`demos/11` and `demos/12`) are
+opt-in extras that `[all]` deliberately leaves out -- each pulls in a
+whole vendor SDK. Add them with:
+
+```bash
+.venv\Scripts\pip install "requisite-ai[adk,openai_agents,strands,agent_framework]"
+```
 
 ### Add your API key
 
@@ -94,19 +101,23 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 | `demos/08_capabilities.py` | `agent.requires(...)` -- built-in `weather`/`internet_search`/`github` capabilities, and overriding one with a higher-priority provider |
 | `demos/09_prompts.py` | `PromptTemplate`/`ChatPromptTemplate`, plus two checks on dotted-field validation and `partial()` injection safety |
 | `demos/10_cost_limiter.py` | `CostLimiter`/`cost_per_token()` -- capping real dollar spend on a tiny budget until it genuinely exhausts mid-run, then `reset()` |
-| `demos/11_adk_orchestrator.py` | The `adk` orchestrator backend (`workflow.use_adk()`) -- `sequential` and `supervisor` strategies, delegating coordination to Google's Agent Development Kit. Requires `pip install google-adk` and `requisite-ai>=0.38.0`; **not yet verified here** (0.38.0 not yet on PyPI) |
+| `demos/11_adk_orchestrator.py` | The `adk` orchestrator backend (`workflow.use_adk()`) -- `sequential` and `supervisor` strategies, delegating coordination to Google's Agent Development Kit. Needs the `adk` extra |
+| `demos/12_agent_sdk_backends.py` | The `openai_agents`, `strands` and `agent_framework` orchestrator backends (`use_openai_agents()` / `use_strands()` / `use_agent_framework()`) -- `sequential` and `supervisor` on each, coordinated by that vendor's own SDK while every model call still goes through the agent's own Gemini provider. Each workflow is run twice on the same agents to cover the repeated-sync-run fix in 0.38.0. Needs the `openai_agents`, `strands` and `agent_framework` extras |
 
 ## Verified
 
-All 9 runnable demos except `demos/11_adk_orchestrator.py` pass end to
-end against real Gemini output (0.37.0) -- `demos/11_adk_orchestrator.py`
-needs `requisite-ai>=0.38.0`, not yet published to PyPI, so it isn't
-verified here yet (see the note above). This includes all thirteen
-multi-agent strategies (`sequential`, `parallel`,
-`consensus`, `map_reduce`, `supervisor`, `planner`, `hierarchical`,
-`reflection`, `critic`, `debate`, `tree_of_thoughts`, `reflexion`,
-`graph`) on both the `native` and `langgraph` backends -- verified as
-individual runs of each demo, not necessarily all 9 back to back in one
+`demos/10_cost_limiter.py`, `demos/11_adk_orchestrator.py` and
+`demos/12_agent_sdk_backends.py` were run against the published **0.38.0**
+and pass against real Gemini output, as did `demos/01_quickstart.py`
+(re-run because 0.38.0 added connection-error retries to every Gemini
+call). The other demos last passed individually on 0.37.0 and have not
+been re-run on 0.38.0 -- nothing in 0.38.0 changes the code paths they
+exercise, but that is an inference, not a re-verification. On 0.37.0
+that covered all thirteen multi-agent strategies (`sequential`,
+`parallel`, `consensus`, `map_reduce`, `supervisor`, `planner`,
+`hierarchical`, `reflection`, `critic`, `debate`, `tree_of_thoughts`,
+`reflexion`, `graph`) on both the `native` and `langgraph` backends --
+verified as individual runs of each demo, not in one back-to-back
 `python run_all.py` pass. `demos/04_memory.py`'s `VectorMemory` and
 `demos/05_rag.py`'s embedding-backed retrievers share a separate,
 noticeably tighter Vertex AI embedding quota

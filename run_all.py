@@ -15,11 +15,6 @@ MCPClient.stdio(...) calls (an inherent part of how the MCP stdio
 transport works, unrelated to how this runner invokes demos).
 demos/_shared.py is a helper module, not a demo.
 
-demos/11_adk_orchestrator.py is skipped for now -- it needs
-requisite-ai>=0.38.0 (workflow.use_adk()), which this repo's venv can't
-install yet since 0.38.0 isn't published to PyPI. Remove this skip once
-it is and the venv is upgraded -- see README.md's "Verified" section.
-
 Run with:
     python run_all.py
 """
@@ -33,7 +28,7 @@ from pathlib import Path
 from types import ModuleType
 
 DEMOS_DIR = Path(__file__).parent / "demos"
-SKIP = {"06_mcp_server.py", "_shared.py", "11_adk_orchestrator.py"}
+SKIP = {"06_mcp_server.py", "_shared.py"}
 
 
 def _load_module(script: Path) -> ModuleType:
