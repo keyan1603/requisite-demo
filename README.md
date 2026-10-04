@@ -7,7 +7,7 @@ would. Originally built to verify the 0.30.0 release -- including the
 [18 fixes from the ADR-0031 code review pass](https://github.com/requisite-ai/requisite-ai/blob/main/docs/adr/0031-code-review-fixes.md) --
 against the real published package, and kept up to date since as a
 working "how do I actually use this" reference. Currently verifies
-**0.38.0**, including all thirteen multi-agent strategies (`consensus`,
+**0.42.0**, including all thirteen multi-agent strategies (`consensus`,
 `map_reduce`, `critic`, `debate`, `tree_of_thoughts`, and `planner` were
 added to this repo alongside 0.34.0, `reflexion` alongside 0.36.0,
 `CostLimiter` alongside 0.37.0, matching what shipped in 0.31.0-0.37.0)
@@ -106,13 +106,24 @@ check on its own. Everything else needs `GEMINI_API_KEY` set.
 
 ## Verified
 
-`demos/10_cost_limiter.py`, `demos/11_adk_orchestrator.py` and
-`demos/12_agent_sdk_backends.py` were run against the published **0.38.0**
-and pass against real Gemini output, as did `demos/01_quickstart.py`.
-The other demos last passed individually on 0.37.0 and have not been
-re-run on 0.38.0 -- nothing in 0.38.0 changes the code paths they
-exercise, but that is an inference, not a re-verification. On 0.37.0
-that covered all thirteen multi-agent strategies (`sequential`,
+Against the published **0.42.0**, with real Gemini output, these demos
+ran to completion: `demos/01_quickstart.py`, `demos/04_memory.py`,
+`demos/05_rag.py`, `demos/07_mcp_client.py`, `demos/09_prompts.py`,
+`demos/10_cost_limiter.py` and `demos/11_adk_orchestrator.py`.
+
+Four demos did not complete on 0.42.0 because Gemini itself kept answering
+`503 UNAVAILABLE` ("This model is currently experiencing high demand"),
+across two attempts spaced several minutes apart: `demos/02_workflows_native.py`,
+`demos/03_workflows_langgraph.py`, `demos/08_capabilities.py` and
+`demos/12_agent_sdk_backends.py`. That is the model service declining
+requests, not a failure in the demo code, but it also means those four have
+not been re-verified on 0.42.0 here. They last passed individually on 0.38.0
+(`demos/12_agent_sdk_backends.py`) and 0.37.0 (the rest). Be aware that
+0.42.0 changed how the native threaded strategies (`parallel`, `consensus`,
+`debate`, `map_reduce`, `tree_of_thoughts`) start their worker threads; the
+framework's own test suite covers that change, but these demos have not
+exercised it live yet. Re-run them when Gemini capacity recovers. The
+0.37.0 runs of the strategy demos that covered all thirteen multi-agent strategies (`sequential`,
 `parallel`, `consensus`, `map_reduce`, `supervisor`, `planner`,
 `hierarchical`, `reflection`, `critic`, `debate`, `tree_of_thoughts`,
 `reflexion`, `graph`) on both the `native` and `langgraph` backends --
